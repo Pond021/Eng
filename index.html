@@ -803,22 +803,23 @@ async function handleImageUpload(event) {
             }
         });
 
-        // ดึงเฉพาะ Words (Part of Speech) เช่น "empty (adj.)" "peanut butter (n.)"
+        // ดึงคำศัพท์ภาษาอังกฤษทั้งหมด
         const rawText = result.data.text;
-        const posPattern = /([A-Za-z][A-Za-z\s]*?)\s*\((n\.|v\.|adj\.|adv\.|prep\.|conj\.|pron\.|vt\.|vi\.)\)/gi;
-        const matches = [...rawText.matchAll(posPattern)];
-        const extractedWords = matches.map(m => m[1].trim().toUpperCase()).filter(w => w.length > 0);
-        const extractedDisplay = matches.map(m => m[0].trim());
+        const extractedWords = rawText
+            .toUpperCase()
+            .replace(/[^A-Z\s]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w.length > 1);
 
         if (extractedWords.length > 0) {
             currentWords = extractedWords;
-            currentWordDisplay = extractedDisplay;
+            currentWordDisplay = extractedWords.slice();
             currentWordIndex = 0;
             statusBadge.innerText = `🎉 สแกนสำเร็จ! พบคำศัพท์ ${currentWords.length} คำ`;
             renderWordTiles(currentWords[0]);
             renderWordList();
         } else {
-            statusBadge.innerText = '❌ ไม่พบคำศัพท์ (Words/Part of Speech) ในรูปภาพ กรุณาใช้รูปตารางคำศัพท์';
+            statusBadge.innerText = '❌ ไม่พบคำศัพท์ในรูปภาพ กรุณาลองรูปที่ชัดเจนขึ้น';
         }
     } catch (error) {
         console.error(error);
