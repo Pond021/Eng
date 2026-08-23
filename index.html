@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phonics Fun - ฝึกสะกดคำภาษาอังกฤษสุดสนุก!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Mali:wght@500;700&display=swap" rel="stylesheet">
+    <!-- ดึงไลบรารี Tesseract.js สำหรับทำ OCR อ่านข้อความจากรูปภาพ -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Mali', cursive, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(135deg, #A8EDEA 0%, #FED6E3 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #4A4A4A;
+        }
+
+        .container {
+            background: #FFFFFF;
+            width: 100%;
+            max-width: 680px;
+            border-radius: 30px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+            border: 6px solid #FFD166;
+            text-align: center;
+            position: relative;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-family: 'Fredoka One', cursive;
+            color: #FF6B6B;
+            font-size: 2.2rem;
+            text-shadow: 2px 2px 0px #FFD166;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .header p {
+            color: #6C757D;
+            font-size: 1.05rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* Upload Area */
+        .upload-section {
+            background: #FFF9E6;
+            border: 3px dashed #FFD166;
+            border-radius: 20px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 25px;
+        }
+
+        .upload-section:hover {
+            background: #FFF3CD;
+            transform: scale(1.02);
+        }
+
+        .upload-btn {
+            background: #4ECDC4;
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #36B3A8;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .upload-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Settings Card */
+        .controls-card {
+            background: #F4F9FF;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 2px solid #E1EEFF;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .label-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #2D3142;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-icon {
+            font-size: 1.8rem;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 14px;
+            border-radius: 10px;
+            background: #E0E0E0;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #FF6B6B;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+            border: 3px solid #FFF;
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* Display Word Area */
+        .word-display-area {
+            background: #FFFFFF;
+            border: 3px solid #4ECDC4;
+            border-radius: 20px;
+            padding: 25px 15px;
+            margin-bottom: 25px;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .letters-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .letter-tile {
+            font-family: 'Fredoka One', cursive;
+            font-size: 2.5rem;
+            width: 55px;
+            height: 65px;
+            background: #FFF;
+            border: 3px solid #FFD166;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2D3142;
+            box-shadow: 0 5px 0 #FFD166;
+            transition: all 0.2s ease;
+        }
+
+        .letter-tile.active {
+            background: #FF6B6B;
+            color: #FFF;
+            border-color: #FF4747;
+            box-shadow: 0 5px 0 #D63030;
+            transform: translateY(-6px) scale(1.1);
+        }
+
+        .word-full {
+            font-family: 'Fredoka One', cursive;
+            font-size: 2.2rem;
+            color: #4ECDC4;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .word-full.active-full {
+            color: #FF6B6B;
+            transform: scale(1.15);
+        }
+
+        /* Play Controls */
+        .action-btns {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn {
+            border: none;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-play {
+            background: #FFD166;
+            color: #2D3142;
+            box-shadow: 0 6px 0 #E0A926;
+        }
+
+        .btn-play:hover {
+            background: #FFE082;
+        }
+
+        .btn-play:active {
+            transform: translateY(6px);
+            box-shadow: none;
+        }
+
+        .btn-stop {
+            background: #FF8E8E;
+            color: white;
+            box-shadow: 0 6px 0 #D65252;
+        }
+
+        .btn-stop:hover {
+            background: #FFA4A4;
+        }
+
+        .btn-stop:active {
+            transform: translateY(6px);
+            box-shadow: none;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 8px 18px;
+            background: #E8F5E9;
+            color: #2E7D32;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><span>🎨</span> Phonics Fun! <span>🌟</span></h1>
+        <p>ฝึกสะกดคำภาษาอังกฤษกับพี่เต่าและพี่กระต่าย 🐢🐇</p>
+    </div>
+
+    <!-- Upload Image Section -->
+    <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size: 2.5rem; margin-bottom: 5px;">📸</div>
+        <div style="font-weight: bold; font-size: 1.1rem; color: #4A4A4A;">อัปโหลดรูปภาพคำศัพท์</div>
+        <div style="font-size: 0.85rem; color: #888;">กดตรงนี้เพื่อเลือกรูปภาพจากเครื่อง</div>
+        <button class="upload-btn" type="button">
+            <span>📁</span> เลือกรูปภาพ
+        </button>
+        <input type="file" id="fileInput" accept="image/*" onchange="handleImageUpload(event)">
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-card">
+        <!-- Speed Control -->
+        <div class="control-group">
+            <div class="label-title">
+                <span>ความเร็วการอ่าน (Speed):</span>
+                <span id="speedVal" style="color: #FF6B6B;">0.8x</span>
+            </div>
+            <div class="slider-container">
+                <span class="slider-icon">🐢</span>
+                <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.1" value="0.8" oninput="updateSpeedLabel(this.value)">
+                <span class="slider-icon">🐇</span>
+            </div>
+        </div>
+
+        <!-- Letter Delay Control -->
+        <div class="control-group">
+            <div class="label-title">
+                <span>เว้นระยะห่างการสะกดตัวอักษร:</span>
+                <span id="letterDelayVal" style="color: #4ECDC4;">500 ms</span>
+            </div>
+            <div class="slider-container">
+                <span class="slider-icon">⚡</span>
+                <input type="range" id="letterDelaySlider" min="200" max="2000" step="100" value="500" oninput="document.getElementById('letterDelayVal').innerText = this.value + ' ms'">
+                <span class="slider-icon">⏳</span>
+            </div>
+        </div>
+
+        <!-- Word Delay Control -->
+        <div class="control-group">
+            <div class="label-title">
+                <span>เว้นระยะห่างระหว่างแต่ละคำ:</span>
+                <span id="wordDelayVal" style="color: #FFD166;">2.0 วินาที</span>
+            </div>
+            <div class="slider-container">
+                <span class="slider-icon">⏱️</span>
+                <input type="range" id="wordDelaySlider" min="1" max="5" step="0.5" value="2" oninput="document.getElementById('wordDelayVal').innerText = this.value + ' วินาที'">
+                <span class="slider-icon">💤</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Word Playback Display -->
+    <div class="status-badge" id="statusBadge">พร้อมสนุกกันแล้ว! เลือกรูปหรือกดเริ่มฟังได้เลย</div>
+    
+    <div class="word-display-area">
+        <div class="letters-container" id="lettersContainer"></div>
+        <div class="word-full" id="fullWordText"></div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="action-btns">
+        <button class="btn btn-play" onclick="startSpellingProcess()">
+            <span>▶️</span> เริ่มฟังเสียงสะกด
+        </button>
+        <button class="btn btn-stop" onclick="stopSpelling()">
+            <span>⏹️</span> หยุด
+        </button>
+    </div>
+</div>
+
+<script>
+    let currentWords = ["RABBIT", "CAT", "PENCIL"];
+    let isPlaying = false;
+    let usFemaleVoice = null;
+    let currentPlaybackToken = 0;
+    const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+    // กรองหาเสียงผู้หญิงสำเนียงอเมริกัน (en-US)
+    function loadVoices() {
+        if (!speechSupported) {
+            usFemaleVoice = null;
+            return;
+        }
+
+        const voices = window.speechSynthesis.getVoices();
+        usFemaleVoice = voices.find(v => v.lang === 'en-US' && (
+            v.name.includes('Samantha') ||
+            v.name.includes('Zira') ||
+            v.name.includes('Victoria') ||
+            v.name.includes('Google US English') ||
+            v.name.includes('Female')
+        )) || voices.find(v => v.lang === 'en-US') || null;
+    }
+
+    if (speechSupported) {
+        speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+    }
+
+    function updateSpeedLabel(val) {
+        document.getElementById('speedVal').innerText = val + 'x';
+    }
+
+    function speakAsync(text, speed) {
+        return new Promise((resolve) => {
+            if (!isPlaying || !speechSupported) {
+                return resolve();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = parseFloat(speed);
+            utterance.pitch = 1.1;
+
+            if (usFemaleVoice) {
+                utterance.voice = usFemaleVoice;
+            }
+
+            utterance.onend = () => resolve();
+            utterance.onerror = () => resolve();
+
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function renderWordTiles(word) {
+    const container = document.getElementById('lettersContainer');
+    const fullText = document.getElementById('fullWordText');
+    container.innerHTML = '';
+    fullText.innerText = word;
+    fullText.classList.remove('active-full');
+    document.querySelectorAll('.letter-tile').forEach(tile => tile.classList.remove('active'));
+
+    word.split('').forEach((char, index) => {
+        const tile = document.createElement('div');
+        tile.className = 'letter-tile';
+        tile.id = `tile-${index}`;
+        tile.innerText = char;
+        container.appendChild(tile);
+    });
+}
+
+function isValidImageFile(file) {
+    if (!file || !file.type || !file.type.startsWith('image/')) return false;
+    const maxSize = 10 * 1024 * 1024;
+    return file.size <= maxSize;
+}
+
+// ระบบสแกนรูปภาพจริงด้วย Tesseract.js (OCR)
+async function handleImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    const statusBadge = document.getElementById('statusBadge');
+
+    if (!file) return;
+
+    if (!isValidImageFile(file)) {
+        statusBadge.innerText = '❌ กรุณาเลือกไฟล์รูปภาพที่ใช้งานได้ และมีขนาดไม่เกิน 10 MB';
+        event.target.value = '';
+        return;
+    }
+
+    stopSpelling();
+    statusBadge.innerText = '⏳ กำลังสแกนตัวอักษรจากรูปภาพ...';
+
+    try {
+        const result = await Tesseract.recognize(file, 'eng', {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    const progress = Math.round(m.progress * 100);
+                    statusBadge.innerText = `⏳ กำลังประมวลผลรูปภาพ... ${progress}%`;
+                }
+            }
+        });
+
+        // ดึงเฉพาะคำศัพท์ภาษาอังกฤษ (ตัดอักขระพิเศษและตัวเลขออก)
+        const rawText = result.data.text;
+        const extractedWords = rawText
+            .toUpperCase()
+            .replace(/[^A-Z\s]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w.length > 1);
+
+        if (extractedWords.length > 0) {
+            currentWords = extractedWords;
+            statusBadge.innerText = `🎉 สแกนสำเร็จ! พบคำศัพท์ ${currentWords.length} คำ`;
+            renderWordTiles(currentWords[0]);
+        } else {
+            statusBadge.innerText = '❌ ไม่พบคำศัพท์ในรูปภาพ กรุณาลองใช็รูปที่ชัดเจนขึ้น';
+        }
+    } catch (error) {
+        console.error(error);
+        statusBadge.innerText = '❌ เกิดข้อผิดพลาดในการอ่านรูปภาพ';
+    }
+}
+
+async function startSpellingProcess() {
+    if (isPlaying) return;
+if (!speechSupported) {
+    document.getElementById('statusBadge').innerText = '⚠️ เบราว์เซอร์นี้ไม่รองรับเสียงอ่าน กรุณาใช้ Chrome หรือ Edge เพื่อใช้งานฟีเจอร์นี้';
+    return;
+}
+
+isPlaying = true;
+
+const playbackToken = ++currentPlaybackToken;
+const speed = document.getElementById('speedSlider').value;
+const letterDelay = parseInt(document.getElementById('letterDelaySlider').value);
+const wordDelay = parseFloat(document.getElementById('wordDelaySlider').value) * 1000;
+
+try {
+    for (let wIdx = 0; wIdx < currentWords.length; wIdx++) {
+        if (!isPlaying || playbackToken !== currentPlaybackToken) break;
+
+        const word = currentWords[wIdx].toUpperCase().trim();
+        renderWordTiles(word);
+
+        document.getElementById('statusBadge').innerText = `กำลังสะกดคำที่ ${wIdx + 1}/${currentWords.length}: ${word}`;
+
+        // 1. สะกดทีละตัวอักษร
+        for (let i = 0; i < word.length; i++) {
+            if (!isPlaying || playbackToken !== currentPlaybackToken) break;
+
+            const tile = document.getElementById(`tile-${i}`);
+            if (tile) tile.classList.add('active');
+
+            await speakAsync(word[i], speed);
+            await sleep(letterDelay);
+
+            if (playbackToken !== currentPlaybackToken || !isPlaying) break;
+            if (tile) tile.classList.remove('active');
+        }
+
+        if (!isPlaying || playbackToken !== currentPlaybackToken) break;
+        await sleep(300);
+
+        // 2. อ่านรวมคำ
+        const fullText = document.getElementById('fullWordText');
+        fullText.classList.add('active-full');
+        await speakAsync(word, speed);
+        await sleep(500);
+        fullText.classList.remove('active-full');
+
+        // 3. เว้นระยะห่างก่อนไปคำถัดไป
+        if (wIdx < currentWords.length - 1) {
+            document.getElementById('statusBadge').innerText = `รอคำถัดไป... (${wordDelay / 1000} วินาที)`;
+            if (!isPlaying || playbackToken !== currentPlaybackToken) break;
+            await sleep(wordDelay);
+        }
+    }
+
+    if (playbackToken === currentPlaybackToken && isPlaying) {
+        document.getElementById('statusBadge').innerText = '🎉 อ่านครบทุกคำแล้ว! เก่งมากครับ!';
+    }
+} finally {
+    if (playbackToken === currentPlaybackToken) {
+        isPlaying = false;
+    }
+}
+}
+
+function stopSpelling() {
+    currentPlaybackToken += 1;
+    isPlaying = false;
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+
+    document.getElementById('statusBadge').innerText = 'หยุดการเล่นแล้ว';
+    document.querySelectorAll('.letter-tile').forEach(t => t.classList.remove('active'));
+    document.getElementById('fullWordText').classList.remove('active-full');
+}
+
+renderWordTiles(currentWords[0]);
+</script>
+
+</body>
+</html>
