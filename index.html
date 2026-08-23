@@ -522,6 +522,7 @@
 
 <script>
     let currentWords = ["RABBIT", "CAT", "PENCIL"];
+    let currentWordDisplay = ["RABBIT (n.)", "CAT (n.)", "PENCIL (n.)"];
     let currentWordIndex = 0;
     let isPlaying = false;
     let usFemaleVoice = null;
@@ -744,7 +745,7 @@ function renderWordList() {
         const item = document.createElement('div');
         item.className = 'word-list-item';
         item.id = `wordListItem-${i}`;
-        item.innerText = (i + 1) + '. ' + w;
+        item.innerText = (i + 1) + '. ' + (currentWordDisplay[i] || w);
         item.onclick = () => startSpellingFrom(i);
         list.appendChild(item);
     });
@@ -797,22 +798,22 @@ async function handleImageUpload(event) {
             }
         });
 
-        // ดึงเฉพาะคำศัพท์ภาษาอังกฤษ (ตัดอักขระพิเศษและตัวเลขออก)
+        // ดึงเฉพาะ Words (Part of Speech) เช่น "empty (adj.)" "peanut butter (n.)"
         const rawText = result.data.text;
-        const extractedWords = rawText
-            .toUpperCase()
-            .replace(/[^A-Z\s]/g, ' ')
-            .split(/\s+/)
-            .filter(w => w.length > 1);
+        const posPattern = /([A-Za-z][A-Za-z\s]*?)\s*\((n\.|v\.|adj\.|adv\.|prep\.|conj\.|pron\.|vt\.|vi\.)\)/gi;
+        const matches = [...rawText.matchAll(posPattern)];
+        const extractedWords = matches.map(m => m[1].trim().toUpperCase()).filter(w => w.length > 0);
+        const extractedDisplay = matches.map(m => m[0].trim());
 
         if (extractedWords.length > 0) {
             currentWords = extractedWords;
+            currentWordDisplay = extractedDisplay;
             currentWordIndex = 0;
             statusBadge.innerText = `🎉 สแกนสำเร็จ! พบคำศัพท์ ${currentWords.length} คำ`;
             renderWordTiles(currentWords[0]);
             renderWordList();
         } else {
-            statusBadge.innerText = '❌ ไม่พบคำศัพท์ในรูปภาพ กรุณาลองใช็รูปที่ชัดเจนขึ้น';
+            statusBadge.innerText = '❌ ไม่พบคำศัพท์ (Words/Part of Speech) ในรูปภาพ กรุณาใช้รูปตารางคำศัพท์';
         }
     } catch (error) {
         console.error(error);
