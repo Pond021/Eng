@@ -304,6 +304,11 @@
             <span>📁</span> เลือกรูปภาพ
         </button>
         <input type="file" id="fileInput" accept="image/*" onchange="handleImageUpload(event)">
+        <br>
+        <button class="upload-btn" type="button" style="background: #FF6B6B; box-shadow: 0 4px 0 #D63030;" onclick="event.stopPropagation(); document.getElementById('cameraInput').click()">
+            <span>📷</span> ถ่ายรูป
+        </button>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleImageUpload(event)">
     </div>
 
     <!-- Controls -->
