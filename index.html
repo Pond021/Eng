@@ -83,6 +83,7 @@
         }
 
         #fileInput,
+        #albumInput,
         #cameraInput {
             display: none;
         }
@@ -449,8 +450,11 @@
                 <div class="word-full" id="fullWordText"></div>
             </div>
 
-            <!-- Playback buttons (with camera) -->
+            <!-- Playback buttons (with camera & album) -->
             <div class="action-btns">
+                <button class="upload-btn" type="button" onclick="document.getElementById('albumInput').click()">
+                    <span>🖼️</span> อัลบั้ม
+                </button>
                 <button class="upload-btn" type="button" onclick="document.getElementById('cameraInput').click()">
                     <span>📷</span> ถ่ายรูป
                 </button>
@@ -468,11 +472,11 @@
             <div class="control-group">
                 <div class="label-title">
                     <span>ความเร็วการอ่าน (Speed):</span>
-                    <span id="speedVal" style="color: #FF6B6B;">3x</span>
+                    <span id="speedVal" style="color: #FF6B6B;">1x</span>
                 </div>
                 <div class="slider-container">
                     <span class="slider-icon">🐢</span>
-                    <input type="range" id="speedSlider" min="0.5" max="5" step="0.1" value="3" oninput="updateSpeedLabel(this.value)">
+                    <input type="range" id="speedSlider" min="0" max="2.5" step="0.1" value="1" oninput="updateSpeedLabel(this.value)">
                     <span class="slider-icon">🐇</span>
                 </div>
             </div>
@@ -515,6 +519,7 @@
             </div>
 
             <input type="file" id="fileInput" accept="image/*" onchange="handleImageUpload(event)">
+            <input type="file" id="albumInput" accept="image/*" onchange="handleImageUpload(event)">
             <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleImageUpload(event)">
         </div>
     </div>
