@@ -846,6 +846,30 @@ function normalizeVocabularyText(text) {
         .trim();
 }
 
+function extractEntriesFromRawText(rawText) {
+    return String(rawText || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .map(text => {
+            const match = text.match(/^\s*(\d{1,3})\s+([A-Za-z][A-Za-z\s]{1,40}?)(?:\s*\([^)]*\))?\s*$/i);
+            if (!match) return '';
+            return normalizeVocabularyText(match[2]);
+        })
+        .filter(Boolean);
+}
+
+function scoreVocabularyEntries(entries) {
+    if (!entries.length) return 0;
+
+    let score = entries.length * 10;
+    for (const entry of entries) {
+        if (entry.length >= 3 && entry.length <= 20) score += 4;
+        if (/^[A-Za-z]+(?:\s+[A-Za-z]+){0,2}$/.test(entry)) score += 6;
+        if (!/[QXZ]{3,}/i.test(entry)) score += 2;
+    }
+    return score;
+}
+
 function extractVocabularyEntries(ocrData) {
     const lineEntries = (ocrData.lines || [])
         .map(line => (line.text || '').trim())
@@ -857,14 +881,7 @@ function extractVocabularyEntries(ocrData) {
 
     if (lineEntries.length > 0) return lineEntries;
 
-    const textEntries = String(ocrData.text || '')
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .map(text => {
-            const match = text.match(/^\s*\d+\s+(.+?)\s*(?:\([^)]*\))?\s*$/i);
-            return match ? normalizeVocabularyText(match[1]) : '';
-        })
-        .filter(Boolean);
+    const textEntries = extractEntriesFromRawText(ocrData.text);
 
     if (textEntries.length > 0) return textEntries;
 
@@ -899,6 +916,42 @@ function extractVocabularyEntries(ocrData) {
         .filter(Boolean);
 }
 
+async function recognizeVocabularyImage(originalImage, processedImage, statusBadge) {
+    const attempts = [
+        { image: originalImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } },
+        { image: processedImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } },
+        { image: originalImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } },
+        { image: processedImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } }
+    ];
+
+    let bestEntries = [];
+    let bestScore = 0;
+
+    for (let i = 0; i < attempts.length; i++) {
+        const attemptNo = i + 1;
+        statusBadge.innerText = `⏳ กำลังสแกนตัวอักษรจากรูปภาพ... (${attemptNo}/${attempts.length})`;
+
+        const result = await Tesseract.recognize(attempts[i].image, 'eng', {
+            ...attempts[i].options,
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    const progress = Math.round(m.progress * 100);
+                    statusBadge.innerText = `⏳ กำลังประมวลผลรูปภาพ... (${attemptNo}/${attempts.length}) ${progress}%`;
+                }
+            }
+        });
+
+        const entries = extractVocabularyEntries(result.data);
+        const score = scoreVocabularyEntries(entries);
+        if (score > bestScore) {
+            bestScore = score;
+            bestEntries = entries;
+        }
+    }
+
+    return bestEntries;
+}
+
 // ระบบสแกนรูปภาพจริงด้วย Tesseract.js (OCR)
 async function handleImageUpload(event) {
     const file = event.target.files && event.target.files[0];
@@ -917,18 +970,7 @@ async function handleImageUpload(event) {
 
     try {
         const processedImage = await preprocessImageForOCR(file);
-        const result = await Tesseract.recognize(processedImage, 'eng', {
-            tessedit_pageseg_mode: '11',
-            preserve_interword_spaces: '1',
-            logger: m => {
-                if (m.status === 'recognizing text') {
-                    const progress = Math.round(m.progress * 100);
-                    statusBadge.innerText = `⏳ กำลังประมวลผลรูปภาพ... ${progress}%`;
-                }
-            }
-        });
-
-        const extractedWords = extractVocabularyEntries(result.data);
+        const extractedWords = await recognizeVocabularyImage(file, processedImage, statusBadge);
 
         if (extractedWords.length > 0) {
             currentWords = extractedWords.map(word => word.toUpperCase());
