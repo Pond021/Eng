@@ -262,6 +262,81 @@
             box-shadow: none;
         }
 
+        .btn-edit {
+            background: #C8A2FF;
+            color: white;
+            box-shadow: 0 6px 0 #9B6BE0;
+        }
+
+        .btn-edit:hover {
+            background: #D4B8FF;
+        }
+
+        .btn-edit:active {
+            transform: translateY(6px);
+            box-shadow: none;
+        }
+
+        /* Manual word-edit panel */
+        .edit-panel {
+            background: #FFFFFF;
+            border: 3px solid #C8A2FF;
+            border-radius: 20px;
+            padding: 18px 15px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .edit-panel-hint {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #6C757D;
+        }
+
+        .word-edit-area {
+            width: 100%;
+            border: 2px solid #E1EEFF;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.15rem;
+            color: #2D3142;
+            background: #F4F9FF;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .edit-panel-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .btn-save {
+            background: #4ECDC4;
+            color: white;
+            box-shadow: 0 6px 0 #36B3A8;
+        }
+
+        .btn-save:active {
+            transform: translateY(6px);
+            box-shadow: none;
+        }
+
+        .btn-cancel {
+            background: #E0E0E0;
+            color: #2D3142;
+            box-shadow: 0 6px 0 #B5B5B5;
+        }
+
+        .btn-cancel:active {
+            transform: translateY(6px);
+            box-shadow: none;
+        }
+
         .voice-select {
             border: 2px solid #E1EEFF;
             border-radius: 50px;
@@ -445,9 +520,26 @@
             <!-- Word Playback Display (moved to top) -->
             <div class="status-badge" id="statusBadge">พร้อมสนุกกันแล้ว! เลือกรูปหรือกดเริ่มฟังได้เลย</div>
 
-            <div class="word-display-area">
+            <div class="word-display-area" id="wordDisplayArea">
                 <div class="letters-container" id="lettersContainer"></div>
                 <div class="word-full" id="fullWordText"></div>
+            </div>
+
+            <!-- Manual word-edit panel: แก้คำที่ OCR อ่านผิด หรือพิมพ์คำศัพท์เองได้ทุกครั้งที่ถ่ายรูปใหม่ -->
+            <div class="edit-panel" id="editPanel" style="display:none;">
+                <p class="edit-panel-hint">📝 พิมพ์คำศัพท์ทีละบรรทัด (1 บรรทัด = 1 คำ) แล้วกดบันทึก</p>
+                <textarea id="wordEditArea" class="word-edit-area" rows="7" placeholder="เช่น
+sausage
+meat
+French fries"></textarea>
+                <div class="edit-panel-btns">
+                    <button type="button" class="btn btn-save" onclick="saveWordEdit()">
+                        <span>💾</span> บันทึกคำศัพท์
+                    </button>
+                    <button type="button" class="btn btn-cancel" onclick="cancelWordEdit()">
+                        <span>✖️</span> ยกเลิก
+                    </button>
+                </div>
             </div>
 
             <!-- Playback buttons (with camera & album) -->
@@ -463,6 +555,9 @@
                 </button>
                 <button class="btn btn-stop" onclick="stopSpelling()">
                     <span>⏹️</span> หยุด
+                </button>
+                <button class="btn btn-edit" type="button" onclick="toggleWordEdit()">
+                    <span>✏️</span> แก้ไขคำศัพท์
                 </button>
             </div>
 
@@ -744,19 +839,6 @@
     }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const NUMBERED_VOCABULARY = {
-    246: 'sausage',
-    247: 'meat',
-    248: 'French fries',
-    249: 'burger',
-    250: 'toast',
-    251: 'fish',
-    252: 'cookie',
-    253: 'cheese',
-    254: 'sandwich',
-    255: 'chicken',
-    256: 'kitchen'
-};
 
 function renderWordTiles(word) {
     const container = document.getElementById('lettersContainer');
@@ -787,6 +869,53 @@ function renderWordList() {
         list.appendChild(item);
     });
     setActiveWordListItem(currentWordIndex);
+}
+
+// เปิดโหมดแก้ไขคำศัพท์ด้วยตนเอง (ใช้ทั้งตอนแก้คำที่ OCR อ่านผิด และตอนพิมพ์คำศัพท์เองเมื่อสแกนไม่พบ)
+function openWordEdit() {
+    stopSpelling();
+    const area = document.getElementById('wordEditArea');
+    area.value = currentWordDisplay.join('\n');
+    document.getElementById('wordDisplayArea').style.display = 'none';
+    document.getElementById('editPanel').style.display = 'flex';
+    area.focus();
+}
+
+function toggleWordEdit() {
+    const isOpen = document.getElementById('editPanel').style.display !== 'none';
+    if (isOpen) {
+        cancelWordEdit();
+    } else {
+        openWordEdit();
+    }
+}
+
+function cancelWordEdit() {
+    document.getElementById('editPanel').style.display = 'none';
+    document.getElementById('wordDisplayArea').style.display = 'flex';
+}
+
+function saveWordEdit() {
+    const lines = document.getElementById('wordEditArea').value
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+    if (lines.length === 0) {
+        document.getElementById('statusBadge').innerText = '⚠️ กรุณาพิมพ์คำศัพท์อย่างน้อย 1 คำ ก่อนบันทึก';
+        return;
+    }
+
+    currentWordDisplay = lines;
+    currentWords = lines.map(w => w.toUpperCase());
+    currentWordIndex = 0;
+
+    document.getElementById('editPanel').style.display = 'none';
+    document.getElementById('wordDisplayArea').style.display = 'flex';
+
+    renderWordTiles(currentWords[0]);
+    renderWordList();
+    document.getElementById('statusBadge').innerText = `✅ บันทึกแล้ว! มีคำศัพท์ทั้งหมด ${currentWords.length} คำ`;
 }
 
 function startSpellingFrom(startIdx) {
@@ -864,49 +993,70 @@ function extractEntriesFromRawText(rawText) {
         .split(/\r?\n/)
         .map(line => line.trim())
         .map(text => {
-            const match = text.match(/^\s*(\d{1,3})\s+([A-Za-z][A-Za-z\s]{1,40}?)(?:\s*\([^)]*\))?\s*$/i);
+            const match = text.match(/^\s*(\d{1,4})[.)]?\s+([A-Za-z][A-Za-z\s'-]{1,40}?)(?:\s*\([^)]*\))?\s*$/i);
             if (!match) return '';
             return normalizeVocabularyText(match[2]);
         })
         .filter(Boolean);
 }
 
-function detectVocabularyNumbers(ocrData) {
-    const numbers = new Set();
-    const addMatches = (text) => {
-        const matches = String(text || '').match(/\b24[6-9]\b|\b25[0-6]\b/g) || [];
-        matches.forEach(match => numbers.add(parseInt(match, 10)));
-    };
-
-    addMatches(ocrData.text);
-    (ocrData.lines || []).forEach(line => addMatches(line.text));
-    (ocrData.words || []).forEach(word => addMatches(word.text));
-
-    return Array.from(numbers).sort((a, b) => a - b);
+// วิธีที่ 1: แยกคำศัพท์จาก "บรรทัด" ที่ Tesseract จัดกลุ่มไว้เอง (เหมาะกับรูปที่ตรง ไม่มีเส้นตารางขวาง)
+function extractEntriesFromLines(ocrData) {
+    return (ocrData.lines || [])
+        .map(line => (line.text || '').trim())
+        .map(text => {
+            const match = text.match(/^\s*\d{1,4}[.)]?\s+(.+?)\s*(?:\([^)]*\))?\s*$/i);
+            return match ? normalizeVocabularyText(match[1]) : '';
+        })
+        .filter(Boolean);
 }
 
-function buildEntriesFromDetectedNumbers(numberList) {
-    if (!numberList.length) return [];
-    const inRange = numberList.filter(num => NUMBERED_VOCABULARY[num]);
-    if (!inRange.length) return [];
+// วิธีที่ 2: จัดกลุ่มคำทีละ "คำ" (word) ตามพิกัด (bbox) ให้เป็นแถวตามแนวตั้ง (y) แล้วเรียงซ้าย-ขวา (x)
+// วิธีนี้ทนทานต่อตารางที่มีเส้นแบ่งคอลัมน์ (เลขลำดับ | คำศัพท์) ซึ่งมักทำให้ Tesseract แยกบรรทัดผิดพลาด
+// ใช้ได้กับคำศัพท์ทุกหน้า ไม่ผูกกับเนื้อหาใดเนื้อหาหนึ่ง
+function extractEntriesFromWordRows(ocrData) {
+    const words = (ocrData.words || [])
+        .filter(w => w && w.text && w.text.trim() && w.bbox)
+        .map(w => ({
+            text: w.text.trim(),
+            x: w.bbox.x0,
+            y: (w.bbox.y0 + w.bbox.y1) / 2,
+            h: Math.max(1, w.bbox.y1 - w.bbox.y0)
+        }));
 
-    const min = inRange[0];
-    const max = inRange[inRange.length - 1];
-    const entries = [];
+    if (!words.length) return [];
 
-    for (let num = min; num <= max; num++) {
-        if (!NUMBERED_VOCABULARY[num]) return [];
-        entries.push(NUMBERED_VOCABULARY[num]);
+    // ประมาณความสูงตัวอักษรเฉลี่ย เพื่อกำหนดช่วงที่ถือว่าอยู่ "แถวเดียวกัน"
+    const avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
+    const rowThreshold = Math.max(12, avgHeight * 0.65);
+
+    words.sort((a, b) => a.y - b.y);
+
+    const rows = [];
+    for (const word of words) {
+        const last = rows[rows.length - 1];
+        if (!last || Math.abs(last.y - word.y) > rowThreshold) {
+            rows.push({ y: word.y, items: [word] });
+        } else {
+            last.items.push(word);
+            last.y = (last.y * (last.items.length - 1) + word.y) / last.items.length;
+        }
     }
 
-    return entries.length >= 3 ? entries : [];
-}
+    return rows
+        .map(row => {
+            const items = row.items.slice().sort((a, b) => a.x - b.x);
+            let texts = items.map(i => i.text).filter(Boolean);
+            if (!texts.length) return '';
 
-function fullNumberedVocabularyPage() {
-    return Object.keys(NUMBERED_VOCABULARY)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .map(num => NUMBERED_VOCABULARY[num]);
+            // ถ้าคำแรกของแถวคือเลขลำดับ (เช่น "246" หรือ "246.") ให้ตัดออก เหลือแต่ตัวคำศัพท์
+            if (/^\d{1,4}[.)]?$/.test(texts[0])) {
+                texts = texts.slice(1);
+            }
+            if (!texts.length) return '';
+            return normalizeVocabularyText(texts.join(' '));
+        })
+        .filter(Boolean);
 }
 
 function scoreVocabularyEntries(entries) {
@@ -914,71 +1064,46 @@ function scoreVocabularyEntries(entries) {
 
     let score = entries.length * 10;
     for (const entry of entries) {
-        if (entry.length >= 3 && entry.length <= 20) score += 4;
-        if (/^[A-Za-z]+(?:\s+[A-Za-z]+){0,2}$/.test(entry)) score += 6;
+        if (entry.length >= 2 && entry.length <= 20) score += 4;
+        if (/^[A-Za-z'-]+(?:\s+[A-Za-z'-]+){0,2}$/.test(entry)) score += 6;
         if (!/[QXZ]{3,}/i.test(entry)) score += 2;
     }
     return score;
 }
 
+// รวมผลลัพธ์จากทั้ง 3 วิธี แล้วให้คะแนนเลือกวิธีที่ให้ผลลัพธ์ดีที่สุดโดยอัตโนมัติ
+// ทำให้ใช้งานได้กับรูปคำศัพท์หน้าไหนก็ได้ ไม่ต้องผูกกับคำศัพท์ชุดใดชุดหนึ่ง
 function extractVocabularyEntries(ocrData) {
-    const lineEntries = (ocrData.lines || [])
-        .map(line => (line.text || '').trim())
-        .map(text => {
-            const match = text.match(/^\s*\d+\s+(.+?)\s*(?:\([^)]*\))?\s*$/i);
-            return match ? normalizeVocabularyText(match[1]) : '';
-        })
-        .filter(Boolean);
+    const candidates = [
+        extractEntriesFromLines(ocrData),
+        extractEntriesFromRawText(ocrData.text),
+        extractEntriesFromWordRows(ocrData)
+    ];
 
-    if (lineEntries.length > 0) return lineEntries;
-
-    const textEntries = extractEntriesFromRawText(ocrData.text);
-
-    if (textEntries.length > 0) return textEntries;
-
-    const words = (ocrData.words || [])
-        .filter(word => word && word.text)
-        .sort((a, b) => {
-            const ay = a.bbox ? a.bbox.y0 : 0;
-            const by = b.bbox ? b.bbox.y0 : 0;
-            if (Math.abs(ay - by) > 12) return ay - by;
-            const ax = a.bbox ? a.bbox.x0 : 0;
-            const bx = b.bbox ? b.bbox.x0 : 0;
-            return ax - bx;
-        });
-
-    const grouped = [];
-    for (const word of words) {
-        const y = word.bbox ? word.bbox.y0 : 0;
-        const last = grouped[grouped.length - 1];
-        if (!last || Math.abs(last.y - y) > 18) {
-            grouped.push({ y, items: [word] });
-        } else {
-            last.items.push(word);
+    let best = [];
+    let bestScore = -1;
+    for (const candidate of candidates) {
+        const score = scoreVocabularyEntries(candidate);
+        if (score > bestScore) {
+            bestScore = score;
+            best = candidate;
         }
     }
-
-    return grouped
-        .map(group => {
-            const texts = group.items.map(item => (item.text || '').trim()).filter(Boolean);
-            if (texts.length < 2 || !/^\d+$/.test(texts[0])) return '';
-            return normalizeVocabularyText(texts.slice(1).join(' '));
-        })
-        .filter(Boolean);
+    return best;
 }
 
 async function recognizeVocabularyImage(originalImage, processedImage, statusBadge) {
+    const charWhitelist = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789().'- ";
     const attempts = [
-        { image: originalImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } },
-        { image: processedImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } },
-        { image: originalImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } },
-        { image: processedImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(). ' } }
+        { image: originalImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: processedImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: originalImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: processedImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: processedImage, options: { tessedit_pageseg_mode: '4', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } }
     ];
 
     let bestEntries = [];
     let bestScore = 0;
-    let bestNumberFallback = [];
-    let foundKnownVocabularyNumber = false;
 
     for (let i = 0; i < attempts.length; i++) {
         const attemptNo = i + 1;
@@ -996,15 +1121,6 @@ async function recognizeVocabularyImage(originalImage, processedImage, statusBad
 
         const entries = extractVocabularyEntries(result.data);
         const score = scoreVocabularyEntries(entries);
-        const detectedNumbers = detectVocabularyNumbers(result.data);
-        const numberFallback = buildEntriesFromDetectedNumbers(detectedNumbers);
-        if (detectedNumbers.some(num => NUMBERED_VOCABULARY[num])) {
-            foundKnownVocabularyNumber = true;
-        }
-
-        if (numberFallback.length > bestNumberFallback.length) {
-            bestNumberFallback = numberFallback;
-        }
 
         if (score > bestScore) {
             bestScore = score;
@@ -1012,9 +1128,6 @@ async function recognizeVocabularyImage(originalImage, processedImage, statusBad
         }
     }
 
-    if (bestEntries.length >= 3) return bestEntries;
-    if (bestNumberFallback.length > 0) return bestNumberFallback;
-    if (foundKnownVocabularyNumber) return fullNumberedVocabularyPage();
     return bestEntries;
 }
 
@@ -1042,11 +1155,12 @@ async function handleImageUpload(event) {
             currentWords = extractedWords.map(word => word.toUpperCase());
             currentWordDisplay = extractedWords.slice();
             currentWordIndex = 0;
-            statusBadge.innerText = `🎉 สแกนสำเร็จ! พบคำศัพท์ ${currentWords.length} คำ`;
+            statusBadge.innerText = `🎉 สแกนสำเร็จ! พบคำศัพท์ ${currentWords.length} คำ (ถ้ามีคำผิด กดปุ่ม ✏️ แก้ไขคำศัพท์ ได้เลย)`;
             renderWordTiles(currentWords[0]);
             renderWordList();
         } else {
-            statusBadge.innerText = '❌ ไม่พบคำศัพท์ในรูปภาพ กรุณาลองรูปที่ชัดเจนขึ้น';
+            statusBadge.innerText = '❌ สแกนไม่พบคำศัพท์ กรุณาลองรูปที่ชัดเจนขึ้น หรือพิมพ์คำศัพท์เองด้านล่างนี้ได้เลย';
+            openWordEdit();
         }
     } catch (error) {
         console.error(error);
