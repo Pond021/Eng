@@ -527,7 +527,7 @@
 
 <script>
     let currentWords = ["RABBIT", "CAT", "PENCIL"];
-    let currentWordDisplay = ["RABBIT (n.)", "CAT (n.)", "PENCIL (n.)"];
+    let currentWordDisplay = ["RABBIT", "CAT", "PENCIL"];
     let currentWordIndex = 0;
     let isPlaying = false;
     let usFemaleVoice = null;
@@ -590,7 +590,26 @@
             if (!speechSupported) return;
             const voices = window.speechSynthesis.getVoices();
             selectedVoice = voices[i] || null;
+            // อัปเดต usFemaleVoice ให้สอดคล้องกับที่เลือก
+            if (selectedVoice) {
+                usFemaleVoice = voices.find(v => v.name === selectedVoice.name);
+            }
         }
+        // เรียกใช้งานเสียงที่เลือก
+        if (typeof speakOverlap !== 'undefined') {
+            // ไม่ต้องทำอะไร - ใช้เสียงที่ตั้งไว้แล้ว
+        }
+        if (typeof speakAsync !== 'undefined') {
+            // ใช้เสียงที่ตั้งไว้แล้ว
+        }
+    }
+    
+    // ฟังก์ชันเพิ่มเติม: โหลดเสียงใหม่เมื่อเปลี่ยนแปลง
+    function reloadVoices() {
+        loadVoices();
+        populateVoiceSelect();
+        // เรียกใช้งานเสียงปัจจุบัน
+        onVoiceChange();
     }
 
     // ----- Google Cloud TTS -----
@@ -750,7 +769,7 @@ function renderWordList() {
         const item = document.createElement('div');
         item.className = 'word-list-item';
         item.id = `wordListItem-${i}`;
-        item.innerText = (i + 1) + '. ' + (currentWordDisplay[i] || w);
+        item.innerText = currentWordDisplay[i] || w;
         item.onclick = () => startSpellingFrom(i);
         list.appendChild(item);
     });
@@ -803,16 +822,23 @@ async function handleImageUpload(event) {
             }
         });
 
-        // ดึงคำศัพท์ภาษาอังกฤษทั้งหมด
+        // ดึงเฉพาะคำศัพท์ ตัดเลขลำดับและวงเล็บเช่น (n.) ออก
         const rawText = result.data.text;
         const extractedWords = rawText
-            .toUpperCase()
-            .replace(/[^A-Z\s]/g, ' ')
-            .split(/\s+/)
-            .filter(w => w.length > 1);
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => line
+                .replace(/^\d+\s*/, '')
+                .replace(/\([^)]*\)/g, ' ')
+                .replace(/[^A-Za-z\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+            )
+            .filter(Boolean);
 
         if (extractedWords.length > 0) {
-            currentWords = extractedWords;
+            currentWords = extractedWords.map(word => word.toUpperCase());
             currentWordDisplay = extractedWords.slice();
             currentWordIndex = 0;
             statusBadge.innerText = `🎉 สแกนสำเร็จ! พบคำศัพท์ ${currentWords.length} คำ`;
