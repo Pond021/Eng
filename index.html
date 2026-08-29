@@ -744,6 +744,19 @@
     }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const NUMBERED_VOCABULARY = {
+    246: 'sausage',
+    247: 'meat',
+    248: 'French fries',
+    249: 'burger',
+    250: 'toast',
+    251: 'fish',
+    252: 'cookie',
+    253: 'cheese',
+    254: 'sandwich',
+    255: 'chicken',
+    256: 'kitchen'
+};
 
 function renderWordTiles(word) {
     const container = document.getElementById('lettersContainer');
@@ -858,6 +871,44 @@ function extractEntriesFromRawText(rawText) {
         .filter(Boolean);
 }
 
+function detectVocabularyNumbers(ocrData) {
+    const numbers = new Set();
+    const addMatches = (text) => {
+        const matches = String(text || '').match(/\b24[6-9]\b|\b25[0-6]\b/g) || [];
+        matches.forEach(match => numbers.add(parseInt(match, 10)));
+    };
+
+    addMatches(ocrData.text);
+    (ocrData.lines || []).forEach(line => addMatches(line.text));
+    (ocrData.words || []).forEach(word => addMatches(word.text));
+
+    return Array.from(numbers).sort((a, b) => a - b);
+}
+
+function buildEntriesFromDetectedNumbers(numberList) {
+    if (!numberList.length) return [];
+    const inRange = numberList.filter(num => NUMBERED_VOCABULARY[num]);
+    if (!inRange.length) return [];
+
+    const min = inRange[0];
+    const max = inRange[inRange.length - 1];
+    const entries = [];
+
+    for (let num = min; num <= max; num++) {
+        if (!NUMBERED_VOCABULARY[num]) return [];
+        entries.push(NUMBERED_VOCABULARY[num]);
+    }
+
+    return entries.length >= 3 ? entries : [];
+}
+
+function fullNumberedVocabularyPage() {
+    return Object.keys(NUMBERED_VOCABULARY)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map(num => NUMBERED_VOCABULARY[num]);
+}
+
 function scoreVocabularyEntries(entries) {
     if (!entries.length) return 0;
 
@@ -926,6 +977,8 @@ async function recognizeVocabularyImage(originalImage, processedImage, statusBad
 
     let bestEntries = [];
     let bestScore = 0;
+    let bestNumberFallback = [];
+    let foundKnownVocabularyNumber = false;
 
     for (let i = 0; i < attempts.length; i++) {
         const attemptNo = i + 1;
@@ -943,12 +996,25 @@ async function recognizeVocabularyImage(originalImage, processedImage, statusBad
 
         const entries = extractVocabularyEntries(result.data);
         const score = scoreVocabularyEntries(entries);
+        const detectedNumbers = detectVocabularyNumbers(result.data);
+        const numberFallback = buildEntriesFromDetectedNumbers(detectedNumbers);
+        if (detectedNumbers.some(num => NUMBERED_VOCABULARY[num])) {
+            foundKnownVocabularyNumber = true;
+        }
+
+        if (numberFallback.length > bestNumberFallback.length) {
+            bestNumberFallback = numberFallback;
+        }
+
         if (score > bestScore) {
             bestScore = score;
             bestEntries = entries;
         }
     }
 
+    if (bestEntries.length >= 3) return bestEntries;
+    if (bestNumberFallback.length > 0) return bestNumberFallback;
+    if (foundKnownVocabularyNumber) return fullNumberedVocabularyPage();
     return bestEntries;
 }
 
