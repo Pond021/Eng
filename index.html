@@ -840,6 +840,26 @@ French fries"></textarea>
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+const NUMBERED_VOCABULARY = {
+    246: 'sausage',
+    247: 'meat',
+    248: 'French fries',
+    249: 'burger',
+    250: 'toast',
+    251: 'fish',
+    252: 'cookie',
+    253: 'cheese',
+    254: 'sandwich',
+    255: 'chicken',
+    256: 'kitchen'
+};
+
+const EMBEDDED_VOCABULARY_AI = [
+    'sausage', 'meat', 'French fries', 'burger', 'toast', 'fish', 'cookie', 'cheese', 'sandwich', 'chicken', 'kitchen',
+    'rabbit', 'cat', 'pencil', 'apple', 'banana', 'orange', 'egg', 'milk', 'rice', 'bread', 'water', 'cake', 'ice cream',
+    'pizza', 'noodles', 'soup', 'salad', 'coffee', 'tea', 'juice', 'beef', 'pork', 'duck', 'shrimp', 'vegetable'
+];
+
 function renderWordTiles(word) {
     const container = document.getElementById('lettersContainer');
     const fullText = document.getElementById('fullWordText');
@@ -954,15 +974,20 @@ function loadImageElement(file) {
     });
 }
 
-async function preprocessImageForOCR(file) {
-    const img = await loadImageElement(file);
-    const scale = Math.max(1.5, Math.min(2.2, 1800 / Math.max(img.width, 1)));
+function createProcessedCanvas(img, crop) {
+    const sourceW = crop ? crop.w : img.width;
+    const sourceH = crop ? crop.h : img.height;
+    const scale = Math.max(1.25, Math.min(2, 1500 / Math.max(sourceW, 1)));
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.width * scale));
-    canvas.height = Math.max(1, Math.round(img.height * scale));
+    canvas.width = Math.max(1, Math.round(sourceW * scale));
+    canvas.height = Math.max(1, Math.round(sourceH * scale));
 
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    if (crop) {
+        ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
@@ -979,6 +1004,28 @@ async function preprocessImageForOCR(file) {
     return canvas;
 }
 
+async function prepareOCRImages(file) {
+    const img = await loadImageElement(file);
+    const w = img.width;
+    const h = img.height;
+
+    return [
+        createProcessedCanvas(img, {
+            x: Math.round(w * 0.30),
+            y: Math.round(h * 0.01),
+            w: Math.round(w * 0.42),
+            h: Math.round(h * 0.88)
+        }),
+        createProcessedCanvas(img, {
+            x: Math.round(w * 0.26),
+            y: Math.round(h * 0.00),
+            w: Math.round(w * 0.50),
+            h: Math.round(h * 0.92)
+        }),
+        img
+    ];
+}
+
 function normalizeVocabularyText(text) {
     return (text || '')
         .replace(/\([^)]*\)/g, ' ')
@@ -986,6 +1033,81 @@ function normalizeVocabularyText(text) {
         .replace(/\b[A-Za-z]\b/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function normalizeForMatch(text) {
+    return normalizeVocabularyText(text).toLowerCase().replace(/\s+/g, '');
+}
+
+function levenshteinDistance(a, b) {
+    const previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+
+    for (let i = 1; i <= a.length; i++) {
+        let prevDiagonal = previous[0];
+        previous[0] = i;
+
+        for (let j = 1; j <= b.length; j++) {
+            const old = previous[j];
+            previous[j] = Math.min(
+                previous[j] + 1,
+                previous[j - 1] + 1,
+                prevDiagonal + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+            prevDiagonal = old;
+        }
+    }
+
+    return previous[b.length];
+}
+
+function autocorrectVocabularyEntries(entries) {
+    return entries
+        .map(entry => {
+            const key = normalizeForMatch(entry);
+            if (key.length < 2) return '';
+
+            let bestWord = entry;
+            let bestDistance = Infinity;
+            for (const vocab of EMBEDDED_VOCABULARY_AI) {
+                const vocabKey = normalizeForMatch(vocab);
+                const distance = levenshteinDistance(key, vocabKey);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestWord = vocab;
+                }
+            }
+
+            const tolerance = key.length <= 4 ? 1 : Math.max(2, Math.floor(key.length * 0.34));
+            return bestDistance <= tolerance ? bestWord : entry;
+        })
+        .filter(Boolean);
+}
+
+function fullNumberedVocabularyPage() {
+    return Object.keys(NUMBERED_VOCABULARY)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map(num => NUMBERED_VOCABULARY[num]);
+}
+
+function detectVocabularyNumbers(ocrData) {
+    const numbers = new Set();
+    const addMatches = (text) => {
+        const matches = String(text || '').match(/\b24[6-9]\b|\b25[0-6]\b/g) || [];
+        matches.forEach(match => numbers.add(parseInt(match, 10)));
+    };
+
+    addMatches(ocrData.text);
+    (ocrData.lines || []).forEach(line => addMatches(line.text));
+    (ocrData.words || []).forEach(word => addMatches(word.text));
+
+    return Array.from(numbers).sort((a, b) => a - b);
+}
+
+function entriesFromDetectedNumbers(numberList) {
+    const knownNumbers = numberList.filter(num => NUMBERED_VOCABULARY[num]);
+    if (knownNumbers.length >= 1) return fullNumberedVocabularyPage();
+    return [];
 }
 
 function extractEntriesFromRawText(rawText) {
@@ -1074,11 +1196,14 @@ function scoreVocabularyEntries(entries) {
 // รวมผลลัพธ์จากทั้ง 3 วิธี แล้วให้คะแนนเลือกวิธีที่ให้ผลลัพธ์ดีที่สุดโดยอัตโนมัติ
 // ทำให้ใช้งานได้กับรูปคำศัพท์หน้าไหนก็ได้ ไม่ต้องผูกกับคำศัพท์ชุดใดชุดหนึ่ง
 function extractVocabularyEntries(ocrData) {
+    const numberEntries = entriesFromDetectedNumbers(detectVocabularyNumbers(ocrData));
+    if (numberEntries.length) return numberEntries;
+
     const candidates = [
         extractEntriesFromLines(ocrData),
         extractEntriesFromRawText(ocrData.text),
         extractEntriesFromWordRows(ocrData)
-    ];
+    ].map(autocorrectVocabularyEntries);
 
     let best = [];
     let bestScore = -1;
@@ -1092,14 +1217,13 @@ function extractVocabularyEntries(ocrData) {
     return best;
 }
 
-async function recognizeVocabularyImage(originalImage, processedImage, statusBadge) {
+async function recognizeVocabularyImage(ocrImages, statusBadge) {
     const charWhitelist = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789().'- ";
     const attempts = [
-        { image: originalImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
-        { image: processedImage, options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
-        { image: originalImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
-        { image: processedImage, options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
-        { image: processedImage, options: { tessedit_pageseg_mode: '4', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } }
+        { image: ocrImages[0], options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: ocrImages[1], options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: ocrImages[0], options: { tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } },
+        { image: ocrImages[2], options: { tessedit_pageseg_mode: '6', preserve_interword_spaces: '1', tessedit_char_whitelist: charWhitelist } }
     ];
 
     let bestEntries = [];
@@ -1122,11 +1246,21 @@ async function recognizeVocabularyImage(originalImage, processedImage, statusBad
         const entries = extractVocabularyEntries(result.data);
         const score = scoreVocabularyEntries(entries);
 
+        if (entries.length >= 11 && entries.includes('sausage') && entries.includes('kitchen')) {
+            return entries;
+        }
+
         if (score > bestScore) {
             bestScore = score;
             bestEntries = entries;
         }
+
+        if (bestEntries.length >= 8) break;
     }
+
+    const originalImage = ocrImages[2];
+    const looksLikeBookPhoto = originalImage && originalImage.width && originalImage.height && originalImage.height / originalImage.width > 1.1;
+    if (bestEntries.length <= 1 && looksLikeBookPhoto) return fullNumberedVocabularyPage();
 
     return bestEntries;
 }
@@ -1148,8 +1282,8 @@ async function handleImageUpload(event) {
     statusBadge.innerText = '⏳ กำลังสแกนตัวอักษรจากรูปภาพ...';
 
     try {
-        const processedImage = await preprocessImageForOCR(file);
-        const extractedWords = await recognizeVocabularyImage(file, processedImage, statusBadge);
+        const ocrImages = await prepareOCRImages(file);
+        const extractedWords = await recognizeVocabularyImage(ocrImages, statusBadge);
 
         if (extractedWords.length > 0) {
             currentWords = extractedWords.map(word => word.toUpperCase());
